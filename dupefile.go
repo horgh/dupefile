@@ -281,6 +281,42 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 			KeepDir: "/home/will/images/game screenshots/WoW_screenshots/",
 			RmDir:   "/home/will/images/game screenshots/WoW_screenshots/",
 		},
+		{
+			KeepDir: "/home/will/images/storey_albums/Albums/2016 Italy/",
+			RmDir:   "/home/will/images/tablet-2016-05-25/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/Albums/2016 Mexico/",
+			RmDir:   "/home/will/images/nexus-5x/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/Baltimore 2010 before alter/",
+			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2011 Harrison hotsprings before alter/",
+			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2010 Tofino before alter/",
+			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2012 Father office photos/",
+			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/Florida 2011 before alter/",
+			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2011 Block party before alter/",
+			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2011 Granny birthday before alter/",
+			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
+		},
 	}
 
 	for _, rule := range rules {
