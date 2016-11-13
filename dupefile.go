@@ -148,14 +148,21 @@ func calculateChecksums(files []*File) error {
 
 		n, err := reader.WriteTo(hasher)
 		if err != nil {
+			_ = fh.Close()
 			return fmt.Errorf("Writing to hash: %s: %s", file.Path, err)
 		}
 
 		if n != file.Size {
+			_ = fh.Close()
 			return fmt.Errorf("Short read/write: %s", file.Path)
 		}
 
 		file.Hash = hasher.Sum(nil)
+
+		err = fh.Close()
+		if err != nil {
+			return fmt.Errorf("Close: %s: %s", file.Path, err)
+		}
 	}
 
 	return nil
@@ -170,7 +177,7 @@ func reportDupes(files []*File) error {
 			checksum[i] = b
 		}
 
-		log.Printf("%s", file)
+		//log.Printf("%s", file)
 
 		foundFile, ok := checksumToFile[checksum]
 		if ok {
