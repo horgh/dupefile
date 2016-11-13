@@ -17,9 +17,10 @@ package main
 
 import (
 	"bufio"
-	"crypto/sha256"
+	"crypto/md5"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -27,7 +28,8 @@ import (
 
 // Args holds command line arguments.
 type Args struct {
-	Dir string
+	Dir  string
+	Live bool
 }
 
 // File holds information about one file.
@@ -59,7 +61,7 @@ func main() {
 	}
 
 	log.Print("Reporting duplicates...")
-	err = reportDupes(files)
+	err = reportDupes(files, args.Live)
 	if err != nil {
 		log.Fatalf("Unable to report duplicates: %s", err)
 	}
@@ -67,6 +69,7 @@ func main() {
 
 func getArgs() (*Args, error) {
 	dir := flag.String("dir", "", "Directory to examine.")
+	live := flag.Bool("live", false, "Enable file deletion.")
 
 	flag.Parse()
 
@@ -76,7 +79,8 @@ func getArgs() (*Args, error) {
 	}
 
 	return &Args{
-		Dir: *dir,
+		Dir:  *dir,
+		Live: *live,
 	}, nil
 }
 
@@ -144,7 +148,8 @@ func calculateChecksums(files []*File) error {
 
 		reader := bufio.NewReader(fh)
 
-		hasher := sha256.New()
+		//hasher := sha256.New()
+		hasher := md5.New()
 
 		n, err := reader.WriteTo(hasher)
 		if err != nil {
@@ -168,11 +173,13 @@ func calculateChecksums(files []*File) error {
 	return nil
 }
 
-func reportDupes(files []*File) error {
-	checksumToFile := make(map[[sha256.Size]byte]*File)
+func reportDupes(files []*File, live bool) error {
+	//checksumToFile := make(map[[sha256.Size]byte]*File)
+	checksumToFile := make(map[[md5.Size]byte]*File)
 
 	for _, file := range files {
-		var checksum [sha256.Size]byte
+		//var checksum [sha256.Size]byte
+		var checksum [md5.Size]byte
 		for i, b := range file.Hash {
 			checksum[i] = b
 		}
@@ -181,11 +188,122 @@ func reportDupes(files []*File) error {
 
 		foundFile, ok := checksumToFile[checksum]
 		if ok {
-			log.Printf("Duplicate found: %s and %s", file.Path, foundFile.Path)
+			// Hash collision. Deep compare.
+			identical, err := isIdentical(foundFile, file)
+			if err != nil {
+				return fmt.Errorf("Unable to compare files: %s %s: %s", foundFile.Path,
+					file.Path, err)
+			}
+
+			if identical {
+				log.Printf("Duplicate found: %s and %s", file.Path, foundFile.Path)
+				err := resolveDuplicate(foundFile, file, live)
+				if err != nil {
+					return err
+				}
+				continue
+			}
+
+			log.Printf("Hash collision but not identical: %s and %s", file.Path,
+				foundFile.Path)
 			continue
 		}
 
 		checksumToFile[checksum] = file
+	}
+
+	return nil
+}
+
+func isIdentical(file1, file2 *File) (bool, error) {
+	contents1, err := readFile(file1)
+	if err != nil {
+		return false, err
+	}
+
+	contents2, err := readFile(file2)
+	if err != nil {
+		return false, err
+	}
+
+	if len(contents1) != len(contents2) {
+		return false, nil
+	}
+
+	for i := range contents1 {
+		if contents1[i] != contents2[i] {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func readFile(file *File) ([]byte, error) {
+	fh, err := os.Open(file.Path)
+	if err != nil {
+		return nil, fmt.Errorf("Open: %s: %s", file, err)
+	}
+
+	contents, err := ioutil.ReadAll(fh)
+	if err != nil {
+		_ = fh.Close()
+		return nil, fmt.Errorf("ReadAll: %s: %s", file.Path, err)
+	}
+
+	err = fh.Close()
+	if err != nil {
+		return nil, fmt.Errorf("Close: %s: %s", file.Path, err)
+	}
+
+	if int64(len(contents)) != file.Size {
+		return nil, fmt.Errorf("Short read: %s", file.Path)
+	}
+
+	return contents, nil
+}
+
+func resolveDuplicate(file1, file2 *File, live bool) error {
+	dir1, _ := path.Split(file1.Path)
+	dir2, _ := path.Split(file2.Path)
+
+	type Rule struct {
+		KeepDir string
+		RmDir   string
+	}
+
+	rules := []Rule{
+		{
+			KeepDir: "/home/will/t/testing/",
+			RmDir:   "/home/will/t/testing/2/",
+		},
+		{
+			KeepDir: "/home/will/images/game screenshots/WoW_screenshots/",
+			RmDir:   "/home/will/images/game screenshots/WoW_screenshots/",
+		},
+	}
+
+	for _, rule := range rules {
+		if dir1 == rule.KeepDir && dir2 == rule.RmDir {
+			log.Printf("Deleting %s", file2.Path)
+			if live {
+				err := os.Remove(file2.Path)
+				if err != nil {
+					return fmt.Errorf("Unable to remove: %s: %s", file2.Path, err)
+				}
+			}
+			continue
+		}
+		if dir1 == rule.RmDir && dir2 == rule.KeepDir {
+			log.Printf("Deleting %s", file1.Path)
+			if live {
+				err := os.Remove(file1.Path)
+				if err != nil {
+					return fmt.Errorf("Unable to remove: %s: %s", file1.Path, err)
+				}
+			}
+			continue
+		}
 	}
 
 	return nil
