@@ -312,8 +312,8 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 			RmDir:   "/home/will/images/leviathan-images/",
 		},
 		{
-			KeepDir: "/home/will/images/storey_albums/2016 Mexico before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
+			KeepDir: "/home/will/images/brewing/burnt-mead/",
+			RmDir:   "/home/will/images/leviathan-images/burnt_mead/",
 		},
 		{
 			KeepDir: "/home/will/images/game screenshots/WoW_screenshots/",
@@ -458,7 +458,7 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 					return fmt.Errorf("Unable to remove: %s: %s", file2.Path, err)
 				}
 			}
-			continue
+			break
 		}
 		if dir1 == rule.RmDir && dir2 == rule.KeepDir {
 			log.Printf("Deleting %s", file1.Path)
@@ -468,7 +468,7 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 					return fmt.Errorf("Unable to remove: %s: %s", file1.Path, err)
 				}
 			}
-			continue
+			break
 		}
 	}
 
