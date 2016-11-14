@@ -332,6 +332,10 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 			RmDir:   "/home/will/images/leviathan-images/",
 		},
 		{
+			KeepDir: "/home/will/images/game screenshots/warcraft/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
 			KeepDir: "/home/will/images/game screenshots/",
 			RmDir:   "/home/will/images/leviathan-images/",
 		},
