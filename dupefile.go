@@ -297,6 +297,16 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 			KeepDir: "/home/will/images/tablet/",
 			RmDir:   "/home/will/images/tablet-2016-05-25/",
 		},
+
+		{
+			KeepDir: "/home/will/images/me/me4/",
+			RmDir:   "/home/will/images/me/me4/Pictures1/Webcam/",
+		},
+		{
+			KeepDir: "/home/will/images/me/Webcam/",
+			RmDir:   "/home/will/images/me/me4/Pictures1/Webcam/",
+		},
+
 		{
 			KeepDir: "/home/will/images/storey_albums/Baltimore 2010 before alter/",
 			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
