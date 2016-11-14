@@ -308,6 +308,118 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 		},
 
 		{
+			KeepDir: "/home/will/images/brewing/burnt-mead/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2016 Mexico before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/game screenshots/WoW_screenshots/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/game screenshots/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/game screenshots/eq/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/misc/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2016 Tofino before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/brewing/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2016 Warpaint before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2008 Antarctica Argentina/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2012 Okanagan/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/puzzles/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/nexus-5x/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/nexus-5x/WhatsApp/sent/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2016 Iceland before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2015 Tofino before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2016 Spain before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2016 Mexico before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/tablet-2016-05-25/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/me/2015/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/me/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/from_polly_2013/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/screenshots/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/people/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/wallpaper/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/desk/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/cats/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
+			KeepDir: "/home/will/images/storey_albums/2016 Warpaint before alter/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
 			KeepDir: "/home/will/images/storey_albums/Baltimore 2010 before alter/",
 			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
 		},
