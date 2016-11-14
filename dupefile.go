@@ -316,6 +316,18 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 			RmDir:   "/home/will/images/leviathan-images/burnt_mead/",
 		},
 		{
+			KeepDir: "/home/will/images/storey_albums/2015 Tofino before alter/",
+			RmDir:   "/home/will/images/leviathan-images/hi/",
+		},
+		{
+			KeepDir: "/home/will/images/brewing/",
+			RmDir:   "/home/will/images/leviathan-images/burnt_mead/",
+		},
+		{
+			KeepDir: "/home/will/images/warcraft/",
+			RmDir:   "/home/will/images/leviathan-images/",
+		},
+		{
 			KeepDir: "/home/will/images/game screenshots/WoW_screenshots/",
 			RmDir:   "/home/will/images/leviathan-images/",
 		},
