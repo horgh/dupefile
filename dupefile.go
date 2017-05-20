@@ -1,18 +1,22 @@
 //
-// This program is to help me deal with duplicate image files I have.
+// This program is to help me deal with duplicate files I have.
 //
-// I am trying to organize my collection of images/galleries. I have found that
-// there are copies of images in several cases. I think I will be able to delete
-// plenty if I can cut down on this duplication. Then I will have less to
-// organize.
+// I am trying to organize my collection of images. I have found that there are
+// duplicate copies of images in several cases. I want to delete these
+// duplicates. Then I will have less to organize.
 //
-// What this program will do:
+// What this program does:
 // - Recursively find all files.
-// - Calculate checksum of each file.
+// - Calculate the checksum of each file.
+// - Check whether any two files have the same checksum.
+// - If they do, check whether the two files are really identical.
+// - If they are, take action. This may be to just report (in non-live mode) or
+//   to remove one of them (in live mode).
 // - Report any two files with identical checksums.
-// - Report any two files with the identical base name.
+// - Report any two files with identical names.
 //
-// Then I hope to be able to add functionality to delete dupes.
+// Running in live mode will delete the duplicates. You have to specify which
+// directory contains the one to delete and which to keep.
 package main
 
 import (
@@ -55,14 +59,12 @@ func main() {
 	}
 
 	log.Print("Calculating checksums...")
-	err = calculateChecksums(files)
-	if err != nil {
+	if err := calculateChecksums(files); err != nil {
 		log.Fatalf("Unable to calculate checksums: %s", err)
 	}
 
 	log.Print("Reporting duplicates...")
-	err = reportDupes(files, args.Live)
-	if err != nil {
+	if err := reportDupes(files, args.Live); err != nil {
 		log.Fatalf("Unable to report duplicates: %s", err)
 	}
 }
@@ -75,7 +77,7 @@ func getArgs() (*Args, error) {
 
 	if len(*dir) == 0 {
 		flag.PrintDefaults()
-		return nil, fmt.Errorf("You must provide a directory.")
+		return nil, fmt.Errorf("you must provide a directory")
 	}
 
 	return &Args{
@@ -87,7 +89,7 @@ func getArgs() (*Args, error) {
 func findFiles(dir string) ([]*File, error) {
 	fi, err := os.Stat(dir)
 	if err != nil {
-		return nil, fmt.Errorf("Stat: %s: %s", dir, err)
+		return nil, fmt.Errorf("stat: %s: %s", dir, err)
 	}
 
 	if !fi.IsDir() {
@@ -96,18 +98,17 @@ func findFiles(dir string) ([]*File, error) {
 
 	dh, err := os.Open(dir)
 	if err != nil {
-		return nil, fmt.Errorf("Open: %s: %s", dir, err)
+		return nil, fmt.Errorf("open: %s: %s", dir, err)
 	}
 
 	fis, err := dh.Readdir(0)
 	if err != nil {
 		_ = dh.Close()
-		return nil, fmt.Errorf("Readdir: %s: %s", dir, err)
+		return nil, fmt.Errorf("readdir: %s: %s", dir, err)
 	}
 
-	err = dh.Close()
-	if err != nil {
-		return nil, fmt.Errorf("Close: %s: %s", dir, err)
+	if err := dh.Close(); err != nil {
+		return nil, fmt.Errorf("close: %s: %s", dir, err)
 	}
 
 	foundFiles := []*File{}
@@ -143,7 +144,7 @@ func calculateChecksums(files []*File) error {
 	for _, file := range files {
 		fh, err := os.Open(file.Path)
 		if err != nil {
-			return fmt.Errorf("Open: %s: %s", file.Path, err)
+			return fmt.Errorf("open: %s: %s", file.Path, err)
 		}
 
 		reader := bufio.NewReader(fh)
@@ -154,19 +155,18 @@ func calculateChecksums(files []*File) error {
 		n, err := reader.WriteTo(hasher)
 		if err != nil {
 			_ = fh.Close()
-			return fmt.Errorf("Writing to hash: %s: %s", file.Path, err)
+			return fmt.Errorf("writing to hash failed: %s: %s", file.Path, err)
 		}
 
 		if n != file.Size {
 			_ = fh.Close()
-			return fmt.Errorf("Short read/write: %s", file.Path)
+			return fmt.Errorf("short read/write: %s", file.Path)
 		}
 
 		file.Hash = hasher.Sum(nil)
 
-		err = fh.Close()
-		if err != nil {
-			return fmt.Errorf("Close: %s: %s", file.Path, err)
+		if err := fh.Close(); err != nil {
+			return fmt.Errorf("close: %s: %s", file.Path, err)
 		}
 	}
 
@@ -178,38 +178,39 @@ func reportDupes(files []*File, live bool) error {
 	checksumToFile := make(map[[md5.Size]byte]*File)
 
 	for _, file := range files {
+		// Make a []byte array with a defined size for a key lookup.
 		//var checksum [sha256.Size]byte
 		var checksum [md5.Size]byte
 		for i, b := range file.Hash {
 			checksum[i] = b
 		}
 
-		//log.Printf("%s", file)
-
+		// Is this a possible duplicate? We can tell by whether we've seen a file
+		// with the same checksum yet.
 		foundFile, ok := checksumToFile[checksum]
-		if ok {
-			// Hash collision. Deep compare.
-			identical, err := isIdentical(foundFile, file)
-			if err != nil {
-				return fmt.Errorf("Unable to compare files: %s %s: %s", foundFile.Path,
-					file.Path, err)
-			}
-
-			if identical {
-				log.Printf("Duplicate found: %s and %s", file.Path, foundFile.Path)
-				err := resolveDuplicate(foundFile, file, live)
-				if err != nil {
-					return err
-				}
-				continue
-			}
-
-			log.Printf("Hash collision but not identical: %s and %s", file.Path,
-				foundFile.Path)
+		if !ok {
+			checksumToFile[checksum] = file
 			continue
 		}
 
-		checksumToFile[checksum] = file
+		// Hash collision. Deep compare to determine whether the files are really
+		// the same.
+		identical, err := isIdentical(foundFile, file)
+		if err != nil {
+			return fmt.Errorf("unable to compare files: %s %s: %s", foundFile.Path,
+				file.Path, err)
+		}
+
+		if identical {
+			log.Printf("Duplicate files found: %s and %s", file.Path, foundFile.Path)
+			if err := resolveDuplicate(foundFile, file, live); err != nil {
+				return err
+			}
+			continue
+		}
+
+		log.Printf("Hash collision but the files are not identical! %s and %s",
+			file.Path, foundFile.Path)
 	}
 
 	return nil
@@ -242,22 +243,21 @@ func isIdentical(file1, file2 *File) (bool, error) {
 func readFile(file *File) ([]byte, error) {
 	fh, err := os.Open(file.Path)
 	if err != nil {
-		return nil, fmt.Errorf("Open: %s: %s", file, err)
+		return nil, fmt.Errorf("open: %s: %s", file, err)
 	}
 
 	contents, err := ioutil.ReadAll(fh)
 	if err != nil {
 		_ = fh.Close()
-		return nil, fmt.Errorf("ReadAll: %s: %s", file.Path, err)
+		return nil, fmt.Errorf("failed ReadAll: %s: %s", file.Path, err)
 	}
 
-	err = fh.Close()
-	if err != nil {
-		return nil, fmt.Errorf("Close: %s: %s", file.Path, err)
+	if err := fh.Close(); err != nil {
+		return nil, fmt.Errorf("close: %s: %s", file.Path, err)
 	}
 
 	if int64(len(contents)) != file.Size {
-		return nil, fmt.Errorf("Short read: %s", file.Path)
+		return nil, fmt.Errorf("short read: %s", file.Path)
 	}
 
 	return contents, nil
@@ -471,7 +471,7 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 			if live {
 				err := os.Remove(file2.Path)
 				if err != nil {
-					return fmt.Errorf("Unable to remove: %s: %s", file2.Path, err)
+					return fmt.Errorf("unable to remove: %s: %s", file2.Path, err)
 				}
 			}
 			break
@@ -481,7 +481,7 @@ func resolveDuplicate(file1, file2 *File, live bool) error {
 			if live {
 				err := os.Remove(file1.Path)
 				if err != nil {
-					return fmt.Errorf("Unable to remove: %s: %s", file1.Path, err)
+					return fmt.Errorf("unable to remove: %s: %s", file1.Path, err)
 				}
 			}
 			break
