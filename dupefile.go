@@ -38,7 +38,7 @@ func main() {
 
 	args, err := getArgs()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error: %s", err)
 	}
 
 	rules, err := readRules(args.Config)
@@ -236,9 +236,16 @@ func reportAndResolveDuplicates(rules []Rule, files []*File, live bool) error {
 
 		if identical {
 			log.Printf("Duplicate files found: %s and %s", file.Path, foundFile.Path)
-			if err := resolveDuplicate(rules, foundFile, file, live); err != nil {
+			foundRule, err := resolveDuplicate(rules, foundFile, file, live)
+			if err != nil {
 				return err
 			}
+
+			if !foundRule {
+				log.Printf("No rule found for duplicate files: %s and %s", file.Path,
+					foundFile.Path)
+			}
+
 			continue
 		}
 
@@ -296,7 +303,15 @@ func readFile(file *File) ([]byte, error) {
 	return contents, nil
 }
 
-func resolveDuplicate(rules []Rule, file1, file2 *File, live bool) error {
+// Return whether there was a rule. If there was a rule (true), then return
+// whether there was an error. Not having a rule is not an error (because we may
+// want to just report).
+func resolveDuplicate(
+	rules []Rule,
+	file1,
+	file2 *File,
+	live bool,
+) (bool, error) {
 	dir1, _ := path.Split(file1.Path)
 	dir2, _ := path.Split(file2.Path)
 
@@ -305,29 +320,29 @@ func resolveDuplicate(rules []Rule, file1, file2 *File, live bool) error {
 			if live {
 				log.Printf("Deleting %s", file2.Path)
 				if err := os.Remove(file2.Path); err != nil {
-					return fmt.Errorf("unable to remove: %s: %s", file2.Path, err)
+					return true, fmt.Errorf("unable to remove: %s: %s", file2.Path, err)
 				}
 			} else {
 				log.Printf("Non-live mode. Would delete %s", file2.Path)
 			}
-			return nil
+			return true, nil
 		}
 
 		if dir1 == rule.RemoveDir && dir2 == rule.KeepDir {
 			if live {
 				log.Printf("Deleting %s", file1.Path)
 				if err := os.Remove(file1.Path); err != nil {
-					return fmt.Errorf("unable to remove: %s: %s", file1.Path, err)
+					return true, fmt.Errorf("unable to remove: %s: %s", file1.Path, err)
 				}
 			} else {
 				log.Printf("Non-live mode. Would delete %s", file2.Path)
 			}
 
-			return nil
+			return true, nil
 		}
 	}
 
-	return fmt.Errorf("no rule to resolve duplicate")
+	return false, nil
 }
 
 func (f *File) String() string {
