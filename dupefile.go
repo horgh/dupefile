@@ -1,27 +1,9 @@
-//
-// This program is to help me deal with duplicate files I have.
-//
-// I am trying to organize my collection of images. I have found that there are
-// duplicate copies of images in several cases. I want to delete these
-// duplicates. Then I will have less to organize.
-//
-// What this program does:
-// - Recursively find all files.
-// - Calculate the checksum of each file.
-// - Check whether any two files have the same checksum.
-// - If they do, check whether the two files are really identical.
-// - If they are, take action. This may be to just report (in non-live mode) or
-//   to remove one of them (in live mode).
-// - Report any two files with identical checksums.
-// - Report any two files with identical names.
-//
-// Running in live mode will delete the duplicates. You have to specify which
-// directory contains the one to delete and which to keep.
 package main
 
 import (
 	"bufio"
 	"crypto/md5"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -32,8 +14,9 @@ import (
 
 // Args holds command line arguments.
 type Args struct {
-	Dir  string
-	Live bool
+	Dir    string
+	Config string
+	Live   bool
 }
 
 // File holds information about one file.
@@ -44,12 +27,23 @@ type File struct {
 	Hash     []byte
 }
 
+// Rule defines what to do with a duplicate file found in two directories.
+type Rule struct {
+	KeepDir   string `json:"keep"`
+	RemoveDir string `json:"remove"`
+}
+
 func main() {
 	log.SetFlags(0)
 
 	args, err := getArgs()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	rules, err := readRules(args.Config)
+	if err != nil {
+		log.Fatalf("Unable to read rules from config: %s: %s", args.Config, err)
 	}
 
 	log.Print("Looking for files...")
@@ -63,14 +57,15 @@ func main() {
 		log.Fatalf("Unable to calculate checksums: %s", err)
 	}
 
-	log.Print("Reporting duplicates...")
-	if err := reportDupes(files, args.Live); err != nil {
-		log.Fatalf("Unable to report duplicates: %s", err)
+	log.Print("Reporting/resolving duplicate files...")
+	if err := reportAndResolveDuplicates(rules, files, args.Live); err != nil {
+		log.Fatalf("Unable to report/resolve duplicates: %s", err)
 	}
 }
 
 func getArgs() (*Args, error) {
 	dir := flag.String("dir", "", "Directory to examine.")
+	config := flag.String("conf", "", "Path to a configuration file.")
 	live := flag.Bool("live", false, "Enable file deletion.")
 
 	flag.Parse()
@@ -80,10 +75,48 @@ func getArgs() (*Args, error) {
 		return nil, fmt.Errorf("you must provide a directory")
 	}
 
+	if len(*config) == 0 {
+		flag.PrintDefaults()
+		return nil, fmt.Errorf("you must provide a configuration file")
+	}
+
 	return &Args{
-		Dir:  *dir,
-		Live: *live,
+		Dir:    *dir,
+		Config: *config,
+		Live:   *live,
 	}, nil
+}
+
+func readRules(configFile string) ([]Rule, error) {
+	buf, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read config: %s", err)
+	}
+
+	type Config struct {
+		Rules []Rule
+	}
+
+	config := Config{}
+	if err := json.Unmarshal(buf, &config); err != nil {
+		return nil, fmt.Errorf("unable to decode config: %s", err)
+	}
+
+	if len(config.Rules) == 0 {
+		return nil, fmt.Errorf("no rules found")
+	}
+
+	for i, rule := range config.Rules {
+		if len(rule.KeepDir) == 0 || len(rule.RemoveDir) == 0 {
+			return nil, fmt.Errorf("rule %d is missing keep/remove directory", i+i)
+		}
+		if rule.KeepDir[0] != '/' || rule.RemoveDir[0] != '/' {
+			return nil, fmt.Errorf("rule %d is has non-absolute keep/remove directory",
+				i+i)
+		}
+	}
+
+	return config.Rules, nil
 }
 
 func findFiles(dir string) ([]*File, error) {
@@ -173,7 +206,7 @@ func calculateChecksums(files []*File) error {
 	return nil
 }
 
-func reportDupes(files []*File, live bool) error {
+func reportAndResolveDuplicates(rules []Rule, files []*File, live bool) error {
 	//checksumToFile := make(map[[sha256.Size]byte]*File)
 	checksumToFile := make(map[[md5.Size]byte]*File)
 
@@ -203,7 +236,7 @@ func reportDupes(files []*File, live bool) error {
 
 		if identical {
 			log.Printf("Duplicate files found: %s and %s", file.Path, foundFile.Path)
-			if err := resolveDuplicate(foundFile, file, live); err != nil {
+			if err := resolveDuplicate(rules, foundFile, file, live); err != nil {
 				return err
 			}
 			continue
@@ -263,232 +296,38 @@ func readFile(file *File) ([]byte, error) {
 	return contents, nil
 }
 
-func resolveDuplicate(file1, file2 *File, live bool) error {
+func resolveDuplicate(rules []Rule, file1, file2 *File, live bool) error {
 	dir1, _ := path.Split(file1.Path)
 	dir2, _ := path.Split(file2.Path)
 
-	type Rule struct {
-		KeepDir string
-		RmDir   string
-	}
-
-	rules := []Rule{
-		{
-			KeepDir: "/home/will/t/testing/",
-			RmDir:   "/home/will/t/testing/2/",
-		},
-		{
-			KeepDir: "/home/will/images/game screenshots/WoW_screenshots/",
-			RmDir:   "/home/will/images/game screenshots/WoW_screenshots/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/Albums/2016 Italy/",
-			RmDir:   "/home/will/images/tablet-2016-05-25/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/Albums/2016 Mexico/",
-			RmDir:   "/home/will/images/nexus-5x/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2016 Mexico before alter/",
-			RmDir:   "/home/will/images/nexus-5x/",
-		},
-		{
-			KeepDir: "/home/will/images/tablet/",
-			RmDir:   "/home/will/images/tablet-2016-05-25/",
-		},
-
-		{
-			KeepDir: "/home/will/images/me/me4/",
-			RmDir:   "/home/will/images/me/me4/Pictures1/Webcam/",
-		},
-		{
-			KeepDir: "/home/will/images/me/Webcam/",
-			RmDir:   "/home/will/images/me/me4/Pictures1/Webcam/",
-		},
-
-		{
-			KeepDir: "/home/will/images/brewing/burnt-mead/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/brewing/burnt-mead/",
-			RmDir:   "/home/will/images/leviathan-images/burnt_mead/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2015 Tofino before alter/",
-			RmDir:   "/home/will/images/leviathan-images/hi/",
-		},
-		{
-			KeepDir: "/home/will/images/brewing/",
-			RmDir:   "/home/will/images/leviathan-images/burnt_mead/",
-		},
-		{
-			KeepDir: "/home/will/images/warcraft/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/game screenshots/WoW_screenshots/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/game screenshots/warcraft/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/game screenshots/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/game screenshots/eq/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/misc/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2016 Tofino before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/brewing/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2016 Warpaint before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2008 Antarctica Argentina/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2012 Okanagan/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/puzzles/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/nexus-5x/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/nexus-5x/WhatsApp/sent/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2016 Iceland before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2015 Tofino before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2016 Spain before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2016 Mexico before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/tablet-2016-05-25/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/me/2015/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/me/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/from_polly_2013/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/screenshots/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/people/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/wallpaper/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/desk/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/cats/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2016 Warpaint before alter/",
-			RmDir:   "/home/will/images/leviathan-images/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/Baltimore 2010 before alter/",
-			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2011 Harrison hotsprings before alter/",
-			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2010 Tofino before alter/",
-			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2012 Father office photos/",
-			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/Florida 2011 before alter/",
-			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2011 Block party before alter/",
-			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
-		},
-		{
-			KeepDir: "/home/will/images/storey_albums/2011 Granny birthday before alter/",
-			RmDir:   "/home/will/images/dad camera backup 2012-10-13/",
-		},
-	}
-
 	for _, rule := range rules {
-		if dir1 == rule.KeepDir && dir2 == rule.RmDir {
-			log.Printf("Deleting %s", file2.Path)
+		if dir1 == rule.KeepDir && dir2 == rule.RemoveDir {
 			if live {
-				err := os.Remove(file2.Path)
-				if err != nil {
+				log.Printf("Deleting %s", file2.Path)
+				if err := os.Remove(file2.Path); err != nil {
 					return fmt.Errorf("unable to remove: %s: %s", file2.Path, err)
 				}
+			} else {
+				log.Printf("Non-live mode. Would delete %s", file2.Path)
 			}
-			break
+			return nil
 		}
-		if dir1 == rule.RmDir && dir2 == rule.KeepDir {
-			log.Printf("Deleting %s", file1.Path)
+
+		if dir1 == rule.RemoveDir && dir2 == rule.KeepDir {
 			if live {
-				err := os.Remove(file1.Path)
-				if err != nil {
+				log.Printf("Deleting %s", file1.Path)
+				if err := os.Remove(file1.Path); err != nil {
 					return fmt.Errorf("unable to remove: %s: %s", file1.Path, err)
 				}
+			} else {
+				log.Printf("Non-live mode. Would delete %s", file2.Path)
 			}
-			break
+
+			return nil
 		}
 	}
 
-	return nil
+	return fmt.Errorf("no rule to resolve duplicate")
 }
 
 func (f *File) String() string {
