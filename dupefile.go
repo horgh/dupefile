@@ -52,6 +52,10 @@ func main() {
 		log.Fatalf("Unable to find files: %s", err)
 	}
 
+	if len(files) == 0 {
+		log.Printf("No files found.")
+	}
+
 	log.Print("Calculating checksums...")
 	if err := calculateChecksums(files); err != nil {
 		log.Fatalf("Unable to calculate checksums: %s", err)
@@ -111,8 +115,12 @@ func readRules(configFile string) ([]Rule, error) {
 			return nil, fmt.Errorf("rule %d is missing keep/remove directory", i+i)
 		}
 		if rule.KeepDir[0] != '/' || rule.RemoveDir[0] != '/' {
-			return nil, fmt.Errorf("rule %d is has non-absolute keep/remove directory",
-				i+i)
+			return nil,
+				fmt.Errorf("rule %d is has non-absolute keep/remove directory", i+i)
+		}
+		if rule.KeepDir == rule.RemoveDir {
+			return nil,
+				fmt.Errorf("rule %d is has identical keep/remove directory", i+i)
 		}
 	}
 
@@ -174,7 +182,9 @@ func findFiles(dir string) ([]*File, error) {
 }
 
 func calculateChecksums(files []*File) error {
-	for _, file := range files {
+	fileCount := len(files)
+
+	for i, file := range files {
 		fh, err := os.Open(file.Path)
 		if err != nil {
 			return fmt.Errorf("open: %s: %s", file.Path, err)
@@ -201,7 +211,12 @@ func calculateChecksums(files []*File) error {
 		if err := fh.Close(); err != nil {
 			return fmt.Errorf("close: %s: %s", file.Path, err)
 		}
+
+		fmt.Printf("\r%d/%d", i+1, fileCount)
 	}
+
+	// Complete the status/count line.
+	fmt.Printf("\n")
 
 	return nil
 }
@@ -235,22 +250,21 @@ func reportAndResolveDuplicates(rules []Rule, files []*File, live bool) error {
 		}
 
 		if identical {
-			log.Printf("Duplicate files found: %s and %s", file.Path, foundFile.Path)
-			foundRule, err := resolveDuplicate(rules, foundFile, file, live)
-			if err != nil {
-				return err
-			}
-
-			if !foundRule {
-				log.Printf("No rule found for duplicate files: %s and %s", file.Path,
-					foundFile.Path)
-			}
-
-			continue
+			return fmt.Errorf(
+				"hash collision but the files are not identical! %s and %s",
+				file.Path, foundFile.Path)
 		}
 
-		log.Printf("Hash collision but the files are not identical! %s and %s",
-			file.Path, foundFile.Path)
+		log.Printf("Duplicate files found: %s and %s", file.Path, foundFile.Path)
+		foundRule, err := resolveDuplicate(rules, foundFile, file, live)
+		if err != nil {
+			return err
+		}
+
+		if !foundRule {
+			log.Printf("No rule found for duplicate files: %s and %s", file.Path,
+				foundFile.Path)
+		}
 	}
 
 	return nil
