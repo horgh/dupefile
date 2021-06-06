@@ -211,7 +211,7 @@ func calculateChecksums(files []*File) error {
 			return fmt.Errorf("close: %s: %s", file.Path, err)
 		}
 
-		fmt.Printf("\r%d/%d", i+1, fileCount)
+		fmt.Fprintf(os.Stderr, "\r%d/%d", i+1, fileCount)
 	}
 
 	// Complete the status/count line.
@@ -251,7 +251,7 @@ func reportAndResolveDuplicates(rules []Rule, files []*File, live bool) error {
 				file.Path, foundFile.Path)
 		}
 
-		log.Printf("Duplicate files found: %s and %s", file.Path, foundFile.Path)
+		fmt.Printf("Duplicate files found: %s and %s\n", file.Path, foundFile.Path)
 		foundRule, err := resolveDuplicate(rules, foundFile, file, live)
 		if err != nil {
 			return err
