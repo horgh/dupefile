@@ -192,7 +192,6 @@ func calculateChecksums(files []*File) error {
 
 		reader := bufio.NewReader(fh)
 
-		//hasher := sha256.New()
 		hasher := md5.New()
 
 		n, err := reader.WriteTo(hasher)
@@ -222,12 +221,10 @@ func calculateChecksums(files []*File) error {
 }
 
 func reportAndResolveDuplicates(rules []Rule, files []*File, live bool) error {
-	//checksumToFile := make(map[[sha256.Size]byte]*File)
 	checksumToFile := make(map[[md5.Size]byte]*File)
 
 	for _, file := range files {
 		// Make a []byte array with a defined size for a key lookup.
-		//var checksum [sha256.Size]byte
 		var checksum [md5.Size]byte
 		for i, b := range file.Hash {
 			checksum[i] = b
