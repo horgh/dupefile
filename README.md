@@ -28,6 +28,7 @@ An example rule file with one rule looks like this:
     {
       "keep":   "/directory1",
       "remove": "/directory2"
+    }
   ]
 }
 ```
