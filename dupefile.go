@@ -245,8 +245,7 @@ func reportAndResolveDuplicates(rules []Rule, files []*File, live bool) error {
 			return fmt.Errorf("unable to compare files: %s %s: %s", foundFile.Path,
 				file.Path, err)
 		}
-
-		if identical {
+		if !identical {
 			return fmt.Errorf(
 				"hash collision but the files are not identical! %s and %s",
 				file.Path, foundFile.Path)
